@@ -1,0 +1,16 @@
+# This file defines code owners for the observability repository
+# Code owners are automatically requested for review when someone opens a pull request
+
+# Default owner for everything in the repo
+* @placheckij
+
+# Observability solution configuration files
+/observability-solution/ @placheckij
+
+# Docker and deployment files
+/docker-compose.yml @placheckij
+/observability-test-app/Dockerfile @placheckij
+
+# Documentation
+/README.md @placheckij
+/LICENSE @placheckij
