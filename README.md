@@ -170,17 +170,24 @@ Use this option to integrate the monitoring stack into your existing application
 
 The observability solution includes a pre-configured alerting system with Alertmanager. Here's how to test it:
 
-### View Active Alerts
+### View Alert Rules and Status
 
-Check Prometheus alerts:
+Check all alert rules (shows both firing and inactive alerts):
+```bash
+curl http://localhost:9090/api/v1/rules | jq
+```
+
+Check active/firing alerts (empty when everything is healthy):
 ```bash
 curl http://localhost:9090/api/v1/alerts | jq
 ```
 
-Check Alertmanager:
+Check Alertmanager (shows alerts sent to Alertmanager):
 ```bash
 curl http://localhost:9093/api/v2/alerts | jq
 ```
+
+**Note**: An empty alerts list means no alerts are firing - this is good! It means all services are healthy.
 
 ### Trigger a Test Alert
 
