@@ -250,7 +250,8 @@ See the [Alertmanager documentation](https://prometheus.io/docs/alerting/latest/
 
 If you need assistance, have questions, or want to report issues:
 
-- **GitHub Issues**: [Create an issue](https://github.com/placheckij/observability/issues)
+- **GitHub Discussions**: [Join the discussion](https://github.com/placheckij/observability/discussions) - Ask questions, share ideas, or discuss implementation
+- **GitHub Issues**: [Report bugs or request features](https://github.com/placheckij/observability/issues)
 - **Email**: jakub.plachecki@gmail.com
 - **LinkedIn**: [Connect with me](https://www.linkedin.com/in/jakubplachecki)
 
