@@ -1,0 +1,22 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2"]
+      method: GET
+      no_follow_redirects: false
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+      valid_status_codes: [200]  # empty means 2xx-3xx accepted; set e.g. [200] to require 200
+  http_json_check:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      headers:
+        Accept: application/json
+      valid_status_codes: [200]
+      # you can check response body with regex
+      fail_if_body_not_matches_regexp:
+        - ".*\"status\"\\s*:\\s*\"ok\".*"

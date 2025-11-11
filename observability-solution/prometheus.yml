@@ -1,0 +1,59 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  # HTTP endpoints monitoring
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]        # module from blackbox.yml
+    static_configs:
+      - targets:
+        # Root health endpoint
+        - http://observability-app:3000/health
+        # API endpoints
+        - http://observability-app:3000/api/health
+        - http://observability-app:3000/api/ping
+        # API v1 endpoints
+        - http://observability-app:3000/api/v1/health
+        - http://observability-app:3000/api/v1/ping
+        # API v2 endpoints
+        - http://observability-app:3000/api/v2/health
+        - http://observability-app:3000/api/v2/ping
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115   # blackbox exporter service name
+
+  # HTTPS/SSL endpoints monitoring
+  - job_name: 'blackbox-https'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        # httpbin.org - designed for testing HTTP/HTTPS requests
+        - https://httpbin.org/status/200
+        - https://httpbin.org/delay/1
+        - https://httpbin.org/get
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115

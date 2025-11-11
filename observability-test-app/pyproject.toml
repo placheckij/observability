@@ -1,0 +1,22 @@
+[project]
+name = "observability-test-app"
+description = "Test app for observability stack with Prometheus, Alertmanager & Grafana"
+authors = [{name="Jakub Płachecki", email="jakub.plachecki@gmail.com"}]
+license = "MIT"
+readme = "README.md"
+version = "1.0.0"
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.119.0"
+pydantic-settings = "^2.0.0"
+uvicorn = "^0.37.0"
+ruff = "^0.14.4"
+isort = "^7.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

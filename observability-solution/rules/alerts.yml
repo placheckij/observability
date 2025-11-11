@@ -1,0 +1,91 @@
+groups:
+  - name: endpoint_availability
+    interval: 30s
+    rules:
+      # Critical: Endpoint is completely down
+      - alert: EndpointDown
+        expr: probe_success{job="blackbox-http"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: endpoint
+        annotations:
+          summary: "Endpoint {{ $labels.instance }} is down"
+          description: "HTTP endpoint {{ $labels.instance }} has been unreachable for more than 2 minutes"
+          runbook_url: "https://example.com/runbooks/endpoint-down"
+
+      # Warning: Endpoint is slow
+      - alert: EndpointSlow
+        expr: probe_duration_seconds{job="blackbox-http"} > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: endpoint
+        annotations:
+          summary: "Endpoint {{ $labels.instance }} is slow"
+          description: "HTTP endpoint {{ $labels.instance }} response time is {{ $value }}s (threshold: 5s)"
+
+      # Warning: High error rate
+      - alert: HighHTTPErrorRate
+        expr: |
+          rate(probe_http_status_code{job="blackbox-http", probe_http_status_code!~"2.."}[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          component: endpoint
+        annotations:
+          summary: "High error rate on {{ $labels.instance }}"
+          description: "Endpoint {{ $labels.instance }} is returning non-2xx status codes"
+
+  - name: ssl_certificates
+    interval: 1h
+    rules:
+      # Critical: Certificate expires soon
+      - alert: SSLCertificateExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry{job="blackbox-https"} - time()) / 86400 < 7
+        for: 1h
+        labels:
+          severity: critical
+          component: ssl
+        annotations:
+          summary: "SSL certificate expiring soon for {{ $labels.instance }}"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"
+
+      # Warning: Certificate expires in 30 days
+      - alert: SSLCertificateExpiringIn30Days
+        expr: (probe_ssl_earliest_cert_expiry{job="blackbox-https"} - time()) / 86400 < 30
+        for: 1h
+        labels:
+          severity: warning
+          component: ssl
+        annotations:
+          summary: "SSL certificate expires in 30 days for {{ $labels.instance }}"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"
+
+  - name: blackbox_exporter
+    interval: 30s
+    rules:
+      # Critical: Blackbox exporter is down
+      - alert: BlackboxExporterDown
+        expr: up{job="blackbox"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: monitoring
+        annotations:
+          summary: "Blackbox Exporter is down"
+          description: "Blackbox Exporter has been down for more than 5 minutes. Endpoint monitoring is not working."
+
+  - name: prometheus
+    interval: 30s
+    rules:
+      # Warning: Prometheus is running out of space
+      - alert: PrometheusStorageSpaceLow
+        expr: (1 - (prometheus_tsdb_storage_blocks_bytes / prometheus_tsdb_storage_blocks_bytes{quantile="1.0"})) * 100 < 10
+        for: 10m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "Prometheus storage space is low"
+          description: "Prometheus has less than 10% storage space remaining"

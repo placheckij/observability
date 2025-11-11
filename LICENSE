@@ -1,0 +1,44 @@
+MIT License
+
+Copyright (c) 2025 Jakub Płachecki
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+
+This project uses the following third-party components:
+
+Observability Stack Components:
+- Prometheus (https://prometheus.io/) - Apache License 2.0
+- Grafana OSS (https://grafana.com/) - AGPL-3.0
+- Alertmanager (https://prometheus.io/docs/alerting/latest/alertmanager/) - Apache License 2.0
+- Blackbox Exporter (https://github.com/prometheus/blackbox_exporter) - Apache License 2.0
+
+Test Application Dependencies:
+- FastAPI (https://fastapi.tiangolo.com/) - MIT License
+- Uvicorn (https://www.uvicorn.org/) - BSD-3-Clause License
+- Pydantic (https://pydantic-docs.helpmanual.io/) - MIT License
+- Python (https://www.python.org/) - PSF License
+
+Docker Images:
+- Alpine Linux (https://alpinelinux.org/) - various open source licenses
+- Python Official Docker Images (https://hub.docker.com/_/python) - multiple licenses
+
+All third-party components are used in accordance with their respective licenses.
+For full license texts, please refer to the original projects.
