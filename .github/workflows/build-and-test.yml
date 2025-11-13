@@ -11,25 +11,25 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
+    - name: 📥 Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: 🐍 Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
 
-    - name: Install yq for YAML parsing
+    - name: 🔧 Install yq for YAML parsing
       run: |
         sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
         sudo chmod +x /usr/local/bin/yq
 
-    - name: Generate Grafana dashboards
+    - name: 📊 Generate Grafana dashboards
       run: |
         chmod +x ./scripts/generate-dashboard.sh
         ./scripts/generate-dashboard.sh
 
-    - name: Verify dashboard was generated
+    - name: ✅ Verify dashboard was generated
       run: |
         if [ ! -f observability-solution/grafana/provisioning/dashboards/blackbox.json ]; then
           echo "ERROR: Dashboard file not generated"
@@ -37,7 +37,7 @@ jobs:
         fi
         echo "✅ Dashboard file exists"
         
-    - name: Validate dashboard JSON structure
+    - name: 🔍 Validate dashboard JSON structure
       run: |
         echo "Validating dashboard JSON..."
         
@@ -70,7 +70,7 @@ jobs:
         
         echo "✅ Dashboard metadata is correct"
         
-    - name: Verify dashboard panels
+    - name: 📋 Verify dashboard panels
       run: |
         echo "Verifying dashboard panels..."
         
@@ -123,7 +123,7 @@ jobs:
           echo "✅ HTTPS section with all 4 SSL panels found in dashboard"
         fi
         
-    - name: Test dashboard generation with HTTPS-only config
+    - name: 🔬 Test dashboard generation with HTTPS-only config
       run: |
         echo "Testing HTTPS-only scenario..."
         
@@ -178,7 +178,7 @@ jobs:
         mv observability-solution/prometheus.yml.backup observability-solution/prometheus.yml
         ./scripts/generate-dashboard.sh
         
-    - name: Test dashboard generation with HTTP-only config
+    - name: 🧪 Test dashboard generation with HTTP-only config
       run: |
         echo "Testing HTTP-only scenario..."
         
@@ -233,15 +233,15 @@ jobs:
         mv observability-solution/prometheus.yml.backup observability-solution/prometheus.yml
         ./scripts/generate-dashboard.sh
         
-    - name: Build Docker images
+    - name: 🐳 Build Docker images
       run: |
         docker compose build --no-cache
         
-    - name: Start observability stack
+    - name: 🚀 Start observability stack
       run: |
         docker compose up -d
         
-    - name: Wait for services to be healthy
+    - name: ⏳ Wait for services to be healthy
       run: |
         echo "Waiting for services to start..."
         sleep 30
@@ -267,7 +267,7 @@ jobs:
         timeout 60 bash -c 'until curl -sf http://localhost:3001/health; do sleep 2; done'
         echo "✅ Demo app is healthy"
         
-    - name: Test Prometheus targets
+    - name: 🎯 Test Prometheus targets
       run: |
         echo "Testing Prometheus targets..."
         
@@ -286,7 +286,7 @@ jobs:
         
         echo "✅ Prometheus has $TARGET_COUNT active targets"
         
-    - name: Test Blackbox probes
+    - name: 🔎 Test Blackbox probes
       run: |
         echo "Testing Blackbox Exporter probes..."
         
@@ -318,7 +318,7 @@ jobs:
           echo "WARNING: No successful HTTP probes, but continuing..."
         fi
         
-    - name: Test alert rules
+    - name: 🚨 Test alert rules
       run: |
         echo "Testing alert rules..."
         
@@ -332,7 +332,7 @@ jobs:
         
         echo "✅ Loaded $RULES_COUNT alert rule groups"
         
-    - name: Test Grafana
+    - name: 📈 Test Grafana
       run: |
         echo "Testing Grafana..."
         
@@ -348,7 +348,7 @@ jobs:
         
         echo "✅ Grafana is healthy"
         
-    - name: Verify dashboard loaded in Grafana
+    - name: ✔️ Verify dashboard loaded in Grafana
       run: |
         echo "Verifying dashboard is loaded in Grafana..."
         
@@ -383,7 +383,7 @@ jobs:
         
         echo "✅ Dashboard loaded correctly in Grafana with $PANEL_COUNT panels"
         
-    - name: Test demo app endpoints
+    - name: 🌐 Test demo app endpoints
       run: |
         echo "Testing demo app endpoints..."
         
@@ -403,7 +403,7 @@ jobs:
         curl -sf http://localhost:3001/api/v2/health | jq -e '.status == "ok"'
         echo "✅ API v2 health endpoint working"
         
-    - name: Show service logs on failure
+    - name: 📜 Show service logs on failure
       if: failure()
       run: |
         echo "=== Prometheus logs ==="
@@ -421,7 +421,7 @@ jobs:
         echo "=== Container status ==="
         docker compose ps
         
-    - name: Cleanup
+    - name: 🧹 Cleanup
       if: always()
       run: |
         docker compose down -v
