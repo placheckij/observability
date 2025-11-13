@@ -176,7 +176,8 @@
       ],
       "title": "HTTP Response Time",
       "type": "timeseries"
-    },
+    }
+    ,
     {
       "datasource": "Prometheus",
       "gridPos": {

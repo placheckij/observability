@@ -238,8 +238,13 @@ if [[ ${http_count} -gt 0 ]]; then
       ],
       "title": "HTTP Response Time",
       "type": "timeseries"
-    },
+    }
 EOF
+
+  # Add comma only if there are HTTPS endpoints to follow
+  if [[ ${https_count} -gt 0 ]]; then
+    echo "    ," >> "${DASHBOARD_OUTPUT}"
+  fi
 fi
 
 # Add HTTPS panels if there are HTTPS endpoints
