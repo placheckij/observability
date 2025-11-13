@@ -51,7 +51,7 @@ jobs:
         
         # Verify dashboard metadata
         TITLE=$(jq -r '.title' observability-solution/grafana/provisioning/dashboards/blackbox.json)
-        UID=$(jq -r '.uid' observability-solution/grafana/provisioning/dashboards/blackbox.json)
+        DASHBOARD_UID=$(jq -r '.uid' observability-solution/grafana/provisioning/dashboards/blackbox.json)
         REFRESH=$(jq -r '.refresh' observability-solution/grafana/provisioning/dashboards/blackbox.json)
         
         if [ "$TITLE" != "Application Health Monitoring" ]; then
@@ -59,8 +59,8 @@ jobs:
           exit 1
         fi
         
-        if [ "$UID" != "app_health_monitoring" ]; then
-          echo "ERROR: Wrong dashboard UID: $UID"
+        if [ "$DASHBOARD_UID" != "app_health_monitoring" ]; then
+          echo "ERROR: Wrong dashboard UID: $DASHBOARD_UID"
           exit 1
         fi
         
