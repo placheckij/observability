@@ -269,15 +269,29 @@ jobs:
       run: |
         echo "Testing Blackbox Exporter probes..."
         
-        # Check if probes are working
-        PROBE_SUCCESS=$(curl -s 'http://localhost:9090/api/v1/query?query=probe_success{job="blackbox-http"}' | jq -r '.data.result | length')
+        # Wait for Prometheus to scrape targets (scrape_interval is 15s)
+        echo "Waiting for Prometheus to scrape targets..."
+        sleep 20
         
-        if [ "$PROBE_SUCCESS" -eq "0" ]; then
-          echo "ERROR: No successful probes found"
-          exit 1
-        fi
+        # Retry logic to check if probes are working
+        MAX_RETRIES=5
+        RETRY_COUNT=0
         
-        echo "✅ Found $PROBE_SUCCESS probe results"
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+          PROBE_SUCCESS=$(curl -s 'http://localhost:9090/api/v1/query?query=probe_success{job="blackbox-http"}' | jq -r '.data.result | length')
+          
+          if [ "$PROBE_SUCCESS" -gt "0" ]; then
+            echo "✅ Found $PROBE_SUCCESS probe results"
+            exit 0
+          fi
+          
+          RETRY_COUNT=$((RETRY_COUNT + 1))
+          echo "Attempt $RETRY_COUNT/$MAX_RETRIES: No probe results yet, waiting..."
+          sleep 5
+        done
+        
+        echo "ERROR: No successful probes found after $MAX_RETRIES attempts"
+        exit 1
         
     - name: Test alert rules
       run: |
