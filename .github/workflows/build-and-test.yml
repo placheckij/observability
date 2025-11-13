@@ -1,0 +1,388 @@
+name: Build and Test Observability Stack
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install yq for YAML parsing
+      run: |
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod +x /usr/local/bin/yq
+
+    - name: Generate Grafana dashboards
+      run: |
+        chmod +x ./scripts/generate-dashboard.sh
+        ./scripts/generate-dashboard.sh
+
+    - name: Verify dashboard was generated
+      run: |
+        if [ ! -f observability-solution/grafana/provisioning/dashboards/blackbox.json ]; then
+          echo "ERROR: Dashboard file not generated"
+          exit 1
+        fi
+        echo "✅ Dashboard file exists"
+        
+    - name: Validate dashboard JSON structure
+      run: |
+        echo "Validating dashboard JSON..."
+        
+        # Verify JSON is valid
+        jq empty observability-solution/grafana/provisioning/dashboards/blackbox.json || {
+          echo "ERROR: Invalid JSON"
+          exit 1
+        }
+        echo "✅ Dashboard JSON is valid"
+        
+        # Verify dashboard metadata
+        TITLE=$(jq -r '.title' observability-solution/grafana/provisioning/dashboards/blackbox.json)
+        UID=$(jq -r '.uid' observability-solution/grafana/provisioning/dashboards/blackbox.json)
+        REFRESH=$(jq -r '.refresh' observability-solution/grafana/provisioning/dashboards/blackbox.json)
+        
+        if [ "$TITLE" != "Application Health Monitoring" ]; then
+          echo "ERROR: Wrong dashboard title: $TITLE"
+          exit 1
+        fi
+        
+        if [ "$UID" != "app_health_monitoring" ]; then
+          echo "ERROR: Wrong dashboard UID: $UID"
+          exit 1
+        fi
+        
+        if [ "$REFRESH" != "5s" ]; then
+          echo "ERROR: Wrong refresh rate: $REFRESH"
+          exit 1
+        fi
+        
+        echo "✅ Dashboard metadata is correct"
+        
+    - name: Verify dashboard panels
+      run: |
+        echo "Verifying dashboard panels..."
+        
+        # Count HTTP and HTTPS endpoints in prometheus.yml
+        HTTP_COUNT=$(yq -r '.scrape_configs[] | select(.job_name == "blackbox-http") | .static_configs[].targets[]' observability-solution/prometheus.yml 2>/dev/null | grep -c '[^[:space:]]' || true)
+        HTTPS_COUNT=$(yq -r '.scrape_configs[] | select(.job_name == "blackbox-https") | .static_configs[].targets[]' observability-solution/prometheus.yml 2>/dev/null | grep -c '[^[:space:]]' || true)
+        
+        echo "Found $HTTP_COUNT HTTP endpoints and $HTTPS_COUNT HTTPS endpoints in config"
+        
+        # Check for expected panels based on endpoint counts
+        PANELS=$(jq '.panels' observability-solution/grafana/provisioning/dashboards/blackbox.json)
+        
+        if [ "$HTTP_COUNT" -gt 0 ]; then
+          # Should have HTTP panels
+          HTTP_ROW=$(echo "$PANELS" | jq -r '.[] | select(.title == "Application HTTP Endpoints") | .title')
+          if [ -z "$HTTP_ROW" ]; then
+            echo "ERROR: HTTP endpoints exist but no HTTP row in dashboard"
+            exit 1
+          fi
+          echo "✅ HTTP section found in dashboard"
+        fi
+        
+        if [ "$HTTPS_COUNT" -gt 0 ]; then
+          # Should have HTTPS panels including SSL monitoring
+          HTTPS_ROW=$(echo "$PANELS" | jq -r '.[] | select(.title == "SSL/HTTPS Monitoring (httpbin.org)") | .title')
+          SSL_TLS_PANEL=$(echo "$PANELS" | jq -r '.[] | select(.title == "SSL/TLS Enabled") | .title')
+          CERT_TIME_PANEL=$(echo "$PANELS" | jq -r '.[] | select(.title == "SSL Certificate Time Remaining") | .title')
+          CERT_DAYS_PANEL=$(echo "$PANELS" | jq -r '.[] | select(.title == "SSL Certificate Days Until Expiry") | .title')
+          
+          if [ -z "$HTTPS_ROW" ]; then
+            echo "ERROR: HTTPS endpoints exist but no HTTPS row in dashboard"
+            exit 1
+          fi
+          
+          if [ -z "$SSL_TLS_PANEL" ]; then
+            echo "ERROR: Missing 'SSL/TLS Enabled' panel"
+            exit 1
+          fi
+          
+          if [ -z "$CERT_TIME_PANEL" ]; then
+            echo "ERROR: Missing 'SSL Certificate Time Remaining' panel"
+            exit 1
+          fi
+          
+          if [ -z "$CERT_DAYS_PANEL" ]; then
+            echo "ERROR: Missing 'SSL Certificate Days Until Expiry' panel"
+            exit 1
+          fi
+          
+          echo "✅ HTTPS section with all 4 SSL panels found in dashboard"
+        fi
+        
+    - name: Test dashboard generation with HTTPS-only config
+      run: |
+        echo "Testing HTTPS-only scenario..."
+        
+        # Backup current config
+        cp observability-solution/prometheus.yml observability-solution/prometheus.yml.backup
+        
+        # Create HTTPS-only config
+        cat > observability-solution/prometheus.yml << 'EOF'
+        global:
+          scrape_interval: 15s
+        scrape_configs:
+          - job_name: "blackbox-https"
+            metrics_path: /probe
+            params:
+              module: [http_2xx]
+            static_configs:
+              - targets:
+                  - https://httpbin.org/get
+            relabel_configs:
+              - source_labels: [__address__]
+                target_label: __param_target
+              - target_label: __address__
+                replacement: blackbox:9115
+        EOF
+        
+        # Generate dashboard
+        ./scripts/generate-dashboard.sh
+        
+        # Verify only HTTPS panels exist
+        PANEL_COUNT=$(jq '.panels | length' observability-solution/grafana/provisioning/dashboards/blackbox.json)
+        HTTP_ROW=$(jq -r '.panels[] | select(.title == "Application HTTP Endpoints") | .title' observability-solution/grafana/provisioning/dashboards/blackbox.json || echo "")
+        HTTPS_ROW=$(jq -r '.panels[] | select(.title == "SSL/HTTPS Monitoring (httpbin.org)") | .title' observability-solution/grafana/provisioning/dashboards/blackbox.json)
+        
+        if [ -n "$HTTP_ROW" ]; then
+          echo "ERROR: HTTP row should not exist in HTTPS-only config"
+          exit 1
+        fi
+        
+        if [ -z "$HTTPS_ROW" ]; then
+          echo "ERROR: HTTPS row should exist"
+          exit 1
+        fi
+        
+        if [ "$PANEL_COUNT" -ne 5 ]; then
+          echo "ERROR: Expected 5 panels (1 row + 4 HTTPS panels), got $PANEL_COUNT"
+          exit 1
+        fi
+        
+        echo "✅ HTTPS-only scenario works correctly"
+        
+        # Restore original config
+        mv observability-solution/prometheus.yml.backup observability-solution/prometheus.yml
+        ./scripts/generate-dashboard.sh
+        
+    - name: Test dashboard generation with HTTP-only config
+      run: |
+        echo "Testing HTTP-only scenario..."
+        
+        # Backup current config
+        cp observability-solution/prometheus.yml observability-solution/prometheus.yml.backup
+        
+        # Create HTTP-only config
+        cat > observability-solution/prometheus.yml << 'EOF'
+        global:
+          scrape_interval: 15s
+        scrape_configs:
+          - job_name: "blackbox-http"
+            metrics_path: /probe
+            params:
+              module: [http_2xx]
+            static_configs:
+              - targets:
+                  - http://app:3000/health
+            relabel_configs:
+              - source_labels: [__address__]
+                target_label: __param_target
+              - target_label: __address__
+                replacement: blackbox:9115
+        EOF
+        
+        # Generate dashboard
+        ./scripts/generate-dashboard.sh
+        
+        # Verify only HTTP panels exist
+        PANEL_COUNT=$(jq '.panels | length' observability-solution/grafana/provisioning/dashboards/blackbox.json)
+        HTTP_ROW=$(jq -r '.panels[] | select(.title == "Application HTTP Endpoints") | .title' observability-solution/grafana/provisioning/dashboards/blackbox.json)
+        HTTPS_ROW=$(jq -r '.panels[] | select(.title == "SSL/HTTPS Monitoring (httpbin.org)") | .title' observability-solution/grafana/provisioning/dashboards/blackbox.json || echo "")
+        
+        if [ -z "$HTTP_ROW" ]; then
+          echo "ERROR: HTTP row should exist"
+          exit 1
+        fi
+        
+        if [ -n "$HTTPS_ROW" ]; then
+          echo "ERROR: HTTPS row should not exist in HTTP-only config"
+          exit 1
+        fi
+        
+        if [ "$PANEL_COUNT" -ne 3 ]; then
+          echo "ERROR: Expected 3 panels (1 row + 2 HTTP panels), got $PANEL_COUNT"
+          exit 1
+        fi
+        
+        echo "✅ HTTP-only scenario works correctly"
+        
+        # Restore original config
+        mv observability-solution/prometheus.yml.backup observability-solution/prometheus.yml
+        ./scripts/generate-dashboard.sh
+        
+    - name: Build Docker images
+      run: |
+        docker compose build --no-cache
+        
+    - name: Start observability stack
+      run: |
+        docker compose up -d
+        
+    - name: Wait for services to be healthy
+      run: |
+        echo "Waiting for services to start..."
+        sleep 30
+        
+        # Wait for Prometheus
+        timeout 60 bash -c 'until curl -sf http://localhost:9090/-/healthy; do sleep 2; done'
+        echo "✅ Prometheus is healthy"
+        
+        # Wait for Blackbox Exporter
+        timeout 60 bash -c 'until curl -sf http://localhost:9115/health; do sleep 2; done'
+        echo "✅ Blackbox Exporter is healthy"
+        
+        # Wait for demo app
+        timeout 60 bash -c 'until curl -sf http://localhost:3001/health; do sleep 2; done'
+        echo "✅ Demo app is healthy"
+        
+    - name: Test Prometheus targets
+      run: |
+        echo "Testing Prometheus targets..."
+        curl -s http://localhost:9090/api/v1/targets | jq -e '.data.activeTargets | length > 0'
+        echo "✅ Prometheus has active targets"
+        
+    - name: Test Blackbox probes
+      run: |
+        echo "Testing Blackbox Exporter probes..."
+        
+        # Check if probes are working
+        PROBE_SUCCESS=$(curl -s 'http://localhost:9090/api/v1/query?query=probe_success{job="blackbox-http"}' | jq -r '.data.result | length')
+        
+        if [ "$PROBE_SUCCESS" -eq "0" ]; then
+          echo "ERROR: No successful probes found"
+          exit 1
+        fi
+        
+        echo "✅ Found $PROBE_SUCCESS probe results"
+        
+    - name: Test alert rules
+      run: |
+        echo "Testing alert rules..."
+        
+        # Check if alert rules are loaded
+        RULES_COUNT=$(curl -s http://localhost:9090/api/v1/rules | jq -r '.data.groups | length')
+        
+        if [ "$RULES_COUNT" -eq "0" ]; then
+          echo "ERROR: No alert rules loaded"
+          exit 1
+        fi
+        
+        echo "✅ Loaded $RULES_COUNT alert rule groups"
+        
+    - name: Test Grafana
+      run: |
+        echo "Testing Grafana..."
+        
+        # Wait a bit more for Grafana
+        sleep 10
+        
+        # Check Grafana health
+        curl -sf http://localhost:9001/api/health || {
+          echo "ERROR: Grafana health check failed"
+          docker compose logs grafana
+          exit 1
+        }
+        
+        echo "✅ Grafana is healthy"
+        
+    - name: Verify dashboard loaded in Grafana
+      run: |
+        echo "Verifying dashboard is loaded in Grafana..."
+        
+        # Check if dashboard exists in Grafana
+        DASHBOARD_RESPONSE=$(curl -sf -u admin:changeme "http://localhost:9001/api/dashboards/uid/app_health_monitoring")
+        
+        if [ -z "$DASHBOARD_RESPONSE" ]; then
+          echo "ERROR: Dashboard not found in Grafana"
+          exit 1
+        fi
+        
+        # Verify dashboard title
+        LOADED_TITLE=$(echo "$DASHBOARD_RESPONSE" | jq -r '.dashboard.title')
+        if [ "$LOADED_TITLE" != "Application Health Monitoring" ]; then
+          echo "ERROR: Dashboard title mismatch: $LOADED_TITLE"
+          exit 1
+        fi
+        
+        # Verify panels were loaded
+        PANEL_COUNT=$(echo "$DASHBOARD_RESPONSE" | jq '.dashboard.panels | length')
+        if [ "$PANEL_COUNT" -eq 0 ]; then
+          echo "ERROR: No panels loaded in dashboard"
+          exit 1
+        fi
+        
+        # Verify HTTPS panels exist (since we have HTTPS targets)
+        SSL_TLS_PANEL=$(echo "$DASHBOARD_RESPONSE" | jq -r '.dashboard.panels[] | select(.title == "SSL/TLS Enabled") | .title')
+        if [ -z "$SSL_TLS_PANEL" ]; then
+          echo "ERROR: SSL/TLS Enabled panel not found in loaded dashboard"
+          exit 1
+        fi
+        
+        echo "✅ Dashboard loaded correctly in Grafana with $PANEL_COUNT panels"
+        
+    - name: Test demo app endpoints
+      run: |
+        echo "Testing demo app endpoints..."
+        
+        # Test root health endpoint
+        curl -sf http://localhost:3001/health | jq -e '.status == "healthy"'
+        echo "✅ Root health endpoint working"
+        
+        # Test API health endpoints
+        curl -sf http://localhost:3001/api/health | jq -e '.status == "ok"'
+        echo "✅ API health endpoint working"
+        
+        # Test API v1 endpoints
+        curl -sf http://localhost:3001/api/v1/health | jq -e '.status == "ok"'
+        echo "✅ API v1 health endpoint working"
+        
+        # Test API v2 endpoints
+        curl -sf http://localhost:3001/api/v2/health | jq -e '.status == "ok"'
+        echo "✅ API v2 health endpoint working"
+        
+    - name: Show service logs on failure
+      if: failure()
+      run: |
+        echo "=== Prometheus logs ==="
+        docker compose logs prometheus
+        echo ""
+        echo "=== Blackbox Exporter logs ==="
+        docker compose logs blackbox
+        echo ""
+        echo "=== Demo App logs ==="
+        docker compose logs app
+        echo ""
+        echo "=== Grafana logs ==="
+        docker compose logs grafana
+        echo ""
+        echo "=== Container status ==="
+        docker compose ps
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        docker compose down -v

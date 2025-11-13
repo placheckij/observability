@@ -28,6 +28,8 @@ ENV PATH=/observability/.local/bin:$PATH \
 COPY --chown=observabilityuser:observabilitygroup ./pyproject.toml ./poetry.lock ./
 RUN /observability/.local/bin/poetry sync --no-root --no-ansi --no-interaction --no-cache
 
+# Runtime stage starts from base (not poetry) to exclude Poetry from final image
+# This reduces image size by ~50MB and removes unnecessary build tools from production
 FROM base AS runtime
 ENV PATH=/observability/.venv/bin:$PATH
 COPY --chown=observabilityuser:observabilitygroup --from=poetry /observability/.venv /observability/.venv

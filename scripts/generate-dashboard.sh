@@ -1,3 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Script to generate Grafana Blackbox Exporter dashboard from Prometheus targets
+# Usage: ./scripts/generate-dashboard.sh
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+PROMETHEUS_CONFIG="${PROJECT_ROOT}/observability-solution/prometheus.yml"
+DASHBOARD_OUTPUT="${PROJECT_ROOT}/observability-solution/grafana/provisioning/dashboards/blackbox.json"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}=== Blackbox Dashboard Generator ===${NC}"
+echo ""
+
+# Check if prometheus.yml exists
+if [[ ! -f "${PROMETHEUS_CONFIG}" ]]; then
+    echo -e "${RED}Error: prometheus.yml not found at ${PROMETHEUS_CONFIG}${NC}"
+    exit 1
+fi
+
+# Check if yq is installed for YAML parsing
+if ! command -v yq &> /dev/null; then
+    echo -e "${YELLOW}Warning: 'yq' not found. Installing using Python...${NC}"
+    if command -v pip3 &> /dev/null; then
+        pip3 install yq
+    else
+        echo -e "${RED}Error: Please install 'yq' (brew install yq or pip install yq)${NC}"
+        exit 1
+    fi
+fi
+
+echo "📊 Parsing Prometheus configuration..."
+
+# Extract targets from prometheus.yml
+http_targets=$(yq -r '.scrape_configs[] | select(.job_name == "blackbox-http") | .static_configs[].targets[]' "${PROMETHEUS_CONFIG}" 2>/dev/null || echo "")
+https_targets=$(yq -r '.scrape_configs[] | select(.job_name == "blackbox-https") | .static_configs[].targets[]' "${PROMETHEUS_CONFIG}" 2>/dev/null || echo "")
+
+# Count non-empty lines
+http_count=$(echo "${http_targets}" | grep -c '[^[:space:]]' || true)
+https_count=$(echo "${https_targets}" | grep -c '[^[:space:]]' || true)
+
+echo "  ✓ Found ${http_count} HTTP endpoints"
+echo "  ✓ Found ${https_count} HTTPS endpoints"
+echo ""
+
+# Generate dashboard JSON
+echo "🔨 Generating dashboard..."
+
+# Start building the JSON
+cat > "${DASHBOARD_OUTPUT}" << 'EOF'
 {
   "annotations": {
     "list": [
@@ -18,6 +75,11 @@
   "id": null,
   "links": [],
   "panels": [
+EOF
+
+# Add HTTP panels if there are HTTP endpoints
+if [[ ${http_count} -gt 0 ]]; then
+  cat >> "${DASHBOARD_OUTPUT}" << 'EOF'
     {
       "datasource": "Prometheus",
       "gridPos": {
@@ -177,6 +239,12 @@
       "title": "HTTP Response Time",
       "type": "timeseries"
     },
+EOF
+fi
+
+# Add HTTPS panels if there are HTTPS endpoints
+if [[ ${https_count} -gt 0 ]]; then
+  cat >> "${DASHBOARD_OUTPUT}" << 'EOF'
     {
       "datasource": "Prometheus",
       "gridPos": {
@@ -476,6 +544,11 @@
       "title": "SSL Certificate Days Until Expiry",
       "type": "timeseries"
     }
+EOF
+fi
+
+# Close the panels array and add dashboard metadata
+cat >> "${DASHBOARD_OUTPUT}" << 'EOF'
   ],
   "refresh": "5s",
   "schemaVersion": 36,
@@ -494,3 +567,17 @@
   "uid": "app_health_monitoring",
   "version": 0
 }
+EOF
+
+echo "  ✓ Dashboard generated at ${DASHBOARD_OUTPUT}"
+echo ""
+echo -e "${GREEN}✅ Dashboard generation complete!${NC}"
+echo ""
+echo "📝 Summary:"
+echo "  - HTTP endpoints: ${http_count}"
+echo "  - HTTPS endpoints: ${https_count}"
+echo "  - Total endpoints: $((http_count + https_count))"
+echo ""
+echo "🔄 To apply changes, restart Grafana:"
+echo "  docker compose restart grafana"
+echo ""

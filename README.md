@@ -4,6 +4,8 @@ A production-ready observability stack using Prometheus, Grafana, Blackbox Expor
 
 [![GitHub](https://img.shields.io/badge/license-MIT-brightgreen.svg)](https://raw.githubusercontent.com/placheckij/observability/main/LICENSE)
 
+> ⭐ If you find this project useful, please consider giving it a star! It helps others discover it and motivates further development.
+
 ## Table of Contents
 - [Project Structure](#project-structure)
 - [Usage](#usage)
@@ -17,7 +19,13 @@ A production-ready observability stack using Prometheus, Grafana, Blackbox Expor
 ## Project Structure
 ```
 observability/
+├── .github/
+│   ├── CODEOWNERS                  # Code review assignments
+│   └── workflows/
+│       └── build-and-test.yml      # CI/CD pipeline
 ├── docker-compose.yml              # Orchestrates all services
+├── scripts/
+│   └── generate-dashboard.sh       # Auto-generates Grafana dashboards
 ├── observability-solution/         # Monitoring & observability configs
 │   ├── prometheus.yml              # Prometheus configuration
 │   ├── alertmanager.yml            # Alertmanager configuration
@@ -27,13 +35,26 @@ observability/
 │   └── grafana/
 │       └── provisioning/
 │           ├── datasources/        # Auto-configured datasources
+│           │   └── prometheus-data-source.yml
 │           └── dashboards/         # Dashboard definitions
+│               ├── default.yml     # Dashboard provider config
+│               └── blackbox.json   # Endpoint monitoring dashboard
 └── observability-test-app/         # Test application to monitor
-    ├── Dockerfile
-    ├── pyproject.toml
-    ├── main.py
+    ├── Dockerfile                  # Multi-stage build (CIS/OWASP compliant)
+    ├── pyproject.toml              # Python dependencies
+    ├── main.py                     # FastAPI application
+    ├── utils.py                    # Utility functions
     ├── api/                        # API endpoints (v1, v2)
+    │   ├── __init__.py
+    │   ├── deps.py
+    │   ├── api_v1/
+    │   │   └── endpoints/
+    │   └── api_v2/
+    │       └── endpoints/
     └── core/                       # Core configuration
+        ├── __init__.py
+        ├── config.py
+        └── logging_setup.json
 ```
 
 # Usage
@@ -162,11 +183,30 @@ Use this option to integrate the monitoring stack into your existing application
             replacement: blackbox:9115
     ```
 
-4.	Ensure your application is on the same Docker network (`monitoring`)
+4.	**Generate Grafana dashboards** automatically from your Prometheus configuration:
+    ```bash
+    # Copy the dashboard generation script
+    cp scripts/generate-dashboard.sh /path/to/your/project/scripts/
+    chmod +x /path/to/your/project/scripts/generate-dashboard.sh
+    
+    # Generate dashboards based on your prometheus.yml endpoints
+    ./scripts/generate-dashboard.sh
+    ```
+    
+    The script will:
+    - Parse your `prometheus.yml` configuration
+    - Detect HTTP and HTTPS endpoints
+    - Generate a complete Grafana dashboard with endpoint monitoring panels
+    - Include SSL/TLS monitoring panels for HTTPS endpoints (certificate expiry, SSL status, etc.)
+    - Save the dashboard to `observability-solution/grafana/provisioning/dashboards/blackbox.json`
+    
+    > **Note:** Run this script whenever you add or remove endpoints in `prometheus.yml` to keep dashboards in sync.
 
-5.	Configure alerting in `observability-solution/alertmanager.yml` with your notification channels ([docs](https://prometheus.io/docs/alerting/latest/configuration/))
+5.	Ensure your application is on the same Docker network (`monitoring`)
 
-6.	Run `docker compose up -d`
+6.	Configure alerting in `observability-solution/alertmanager.yml` with your notification channels ([docs](https://prometheus.io/docs/alerting/latest/configuration/))
+
+7.	Run `docker compose up -d`
 
 ## Testing the Alert System
 
@@ -254,7 +294,7 @@ If you need assistance, have questions, or want to report issues:
 
 - **GitHub Discussions**: [Join the discussion](https://github.com/placheckij/observability/discussions) - Ask questions, share ideas, or discuss implementation
 - **GitHub Issues**: [Report bugs or request features](https://github.com/placheckij/observability/issues)
-- **Email**: jakub.plachecki@gmail.com
+- **Email**: [jakub@plachecki.dev](mailto:jakub@plachecki.dev)
 - **LinkedIn**: [Connect with me](https://www.linkedin.com/in/jakubplachecki)
 
 Contributions, feedback, and suggestions are welcome!
