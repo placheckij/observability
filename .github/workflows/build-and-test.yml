@@ -247,6 +247,15 @@ jobs:
         echo "Waiting for services to start..."
         sleep 30
         
+        # Show Docker network info
+        echo "=== Docker network info ==="
+        docker network ls
+        docker network inspect observability_monitoring || echo "Network inspection failed"
+        
+        # Show running containers
+        echo "=== Running containers ==="
+        docker compose ps
+        
         # Wait for Prometheus
         timeout 60 bash -c 'until curl -sf http://localhost:9090/-/healthy; do sleep 2; done'
         echo "✅ Prometheus is healthy"
@@ -262,12 +271,33 @@ jobs:
     - name: Test Prometheus targets
       run: |
         echo "Testing Prometheus targets..."
-        curl -s http://localhost:9090/api/v1/targets | jq -e '.data.activeTargets | length > 0'
-        echo "✅ Prometheus has active targets"
+        
+        # Show all targets with details
+        echo "Fetching target details..."
+        curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, instance: .labels.instance, health: .health, lastError: .lastError}'
+        
+        # Verify we have active targets
+        TARGET_COUNT=$(curl -s http://localhost:9090/api/v1/targets | jq -r '.data.activeTargets | length')
+        echo "Found $TARGET_COUNT active targets"
+        
+        if [ "$TARGET_COUNT" -eq "0" ]; then
+          echo "ERROR: No active targets found"
+          exit 1
+        fi
+        
+        echo "✅ Prometheus has $TARGET_COUNT active targets"
         
     - name: Test Blackbox probes
       run: |
         echo "Testing Blackbox Exporter probes..."
+        
+        # Show what metrics are available
+        echo "Checking available metrics..."
+        curl -s 'http://localhost:9090/api/v1/label/__name__/values' | jq -r '.data[]' | grep -i probe | head -10 || echo "No probe metrics found"
+        
+        # Check probe_success metric specifically
+        echo "Querying probe_success metric..."
+        curl -s 'http://localhost:9090/api/v1/query?query=probe_success' | jq .
         
         # Wait for Prometheus to scrape targets (scrape_interval is 15s)
         echo "Waiting for Prometheus to scrape targets..."
