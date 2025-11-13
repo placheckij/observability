@@ -1,11 +1,10 @@
-name: Build and Test Observability Stack
+name: Build and Test
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
 
 jobs:
   build-and-test:
