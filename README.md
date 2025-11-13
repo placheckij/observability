@@ -3,6 +3,7 @@
 A production-ready observability stack using Prometheus, Grafana, Blackbox Exporter, and Alertmanager. Monitor HTTP/HTTPS endpoints, track SSL certificate expiration, and receive alerts when services go down. Includes a demo FastAPI application for testing, or use just the monitoring components in your own projects.
 
 [![GitHub](https://img.shields.io/badge/license-MIT-brightgreen.svg)](https://raw.githubusercontent.com/placheckij/observability/main/LICENSE)
+[![Build and Test](https://github.com/placheckij/observability/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/placheckij/observability/actions/workflows/build-and-test.yml)
 
 > ⭐ If you find this project useful, please consider giving it a star! It helps others discover it and motivates further development.
 
