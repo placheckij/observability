@@ -77,6 +77,8 @@ Use this option to test the complete observability solution with the included de
     •	Alertmanager webhook/SMTP configs in `observability-solution/alertmanager.yml` ([docs](https://prometheus.io/docs/alerting/latest/configuration/))
 
 4.	Run `docker compose up -d --build`
+    
+    Requires Docker Compose v2 (the `pids` and `nofile` limits are ignored by docker-compose v1). All ports are published on loopback only (`127.0.0.1`). If port 3001 is taken on your machine, run `APP_PORT=3011 docker compose up -d --build`.
 5.	Access the services:
 
     •	**Demo App**: http://localhost:3001/health
@@ -111,48 +113,48 @@ Use this option to integrate the monitoring stack into your existing application
       # Your existing services here...
       
       prometheus:
-        image: prom/prometheus:latest
+        image: prom/prometheus:v3.15.1@sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2
         volumes:
           - ./observability-solution/prometheus.yml:/etc/prometheus/prometheus.yml:ro
           - ./observability-solution/rules:/etc/prometheus/rules:ro
         command:
           - "--config.file=/etc/prometheus/prometheus.yml"
         ports:
-          - "9090:9090"
+          - "127.0.0.1:9090:9090"
         networks:
           - monitoring
 
       blackbox:
-        image: prom/blackbox-exporter:latest
+        image: prom/blackbox-exporter:v0.29.1@sha256:ea1c7aa3ef3f307cd03e85f34abb604478ccb90b567fc690da0cd9776da76b13
         volumes:
           - ./observability-solution/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
         command:
           - "--config.file=/etc/blackbox_exporter/config.yml"
         ports:
-          - "9115:9115"
+          - "127.0.0.1:9115:9115"
         networks:
           - monitoring
 
       alertmanager:
-        image: prom/alertmanager:latest
+        image: prom/alertmanager:v0.34.2@sha256:39d8bb3966c694a124428a3a88fbcffd40bd069129ecd47c059f8a3f17c55f3b
         volumes:
           - ./observability-solution/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
         command:
           - "--config.file=/etc/alertmanager/alertmanager.yml"
         ports:
-          - "9093:9093"
+          - "127.0.0.1:9093:9093"
         networks:
           - monitoring
 
       grafana:
-        image: grafana/grafana-oss:latest
+        image: grafana/grafana-oss:13.0.2@sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2
         environment:
           - GF_SECURITY_ADMIN_PASSWORD=your_secure_password
         volumes:
           - grafana-data:/var/lib/grafana
           - ./observability-solution/grafana/provisioning:/etc/grafana/provisioning:ro
         ports:
-          - "9001:3000"
+          - "127.0.0.1:9001:3000"
         networks:
           - monitoring
 

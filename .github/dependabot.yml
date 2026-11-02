@@ -1,0 +1,26 @@
+version: 2
+updates:
+  # Keeps the SHA-pinned actions in ci.yml current
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Base image of the demo app. The FROM line is assembled from ARGs, which Dependabot may not
+  # follow - the weekly CI rebuild and Trivy scan are what notice a stale pin.
+  - package-ecosystem: "docker"
+    directory: "/observability-test-app"
+    schedule:
+      interval: "weekly"
+
+  # Pinned third-party images in docker-compose.yml
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Python dependencies (pyproject.toml / poetry.lock)
+  - package-ecosystem: "pip"
+    directory: "/observability-test-app"
+    schedule:
+      interval: "weekly"
