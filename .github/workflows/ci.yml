@@ -9,6 +9,9 @@ on:
     # Weekly rebuild without cache, so new CVEs and OS patches surface without a push (CIS 4.4)
     - cron: '0 6 * * 1'
 
+permissions:
+  contents: read
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -20,7 +23,7 @@ jobs:
     - name: 🐍 Set up Python
       uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
-        python-version: '3.12'
+        python-version: '3.14'
 
     - name: 🔍 Lint Dockerfile
       uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
@@ -45,6 +48,23 @@ jobs:
         scanners: 'secret'
         format: 'table'
         exit-code: '1'
+
+    # Dependabot may not follow the FROM line (assembled from ARGs), so check the pin ourselves.
+    # Scheduled runs only: an upstream republish must not fail unrelated PRs.
+    - name: 📌 Verify base image digest is current
+      if: github.event_name == 'schedule'
+      run: |
+        file=observability-test-app/Dockerfile
+        py=$(sed -n 's/^ARG PYTHON_VERSION=//p' "$file")
+        alpine=$(sed -n 's/^ARG ALPINE_VERSION=//p' "$file")
+        pinned=$(grep -o 'sha256:[0-9a-f]\{64\}' "$file" | head -1)
+        current=$(docker buildx imagetools inspect "python:${py}-alpine${alpine}" --format '{{json .Manifest.Digest}}' | tr -d '"')
+        if [ "$pinned" != "$current" ]; then
+          echo "ERROR: python:${py}-alpine${alpine} moved. Pinned $pinned, current $current"
+          echo "Bump the digest in $file, rebuild and run the checks."
+          exit 1
+        fi
+        echo "✅ Base image digest is current ($pinned)"
 
     - name: 🔧 Install yq for YAML parsing
       run: |
