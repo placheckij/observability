@@ -290,7 +290,7 @@ jobs:
 
     - name: 🚫 Verify no setuid or setgid files (CIS 4.7)
       run: |
-        found=$(docker run --rm --user root --entrypoint sh observability-test-app:1.0.0 -c 'find / -xdev -perm /6000 -type f 2>/dev/null; true')
+        found=$(docker run --rm --user root --entrypoint sh observability-test-app:1.0.0 -c 'find / -xdev \( -perm -4000 -o -perm -2000 \) -type f')
         if [ -n "$found" ]; then
           echo "setuid/setgid files found:"
           echo "$found"
