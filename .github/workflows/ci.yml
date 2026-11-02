@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  schedule:
+    # Weekly rebuild without cache, so new CVEs and OS patches surface without a push (CIS 4.4)
+    - cron: '0 6 * * 1'
 
 jobs:
   build-and-test:
@@ -12,16 +15,40 @@ jobs:
     
     steps:
     - name: 📥 Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: 🐍 Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: '3.12'
 
+    - name: 🔍 Lint Dockerfile
+      uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+      with:
+        dockerfile: observability-test-app/Dockerfile
+        failure-threshold: warning
+
+    - name: 🛡️ Scan Dockerfile and compose config for misconfigurations
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      with:
+        scan-type: 'config'
+        scan-ref: '.'
+        format: 'table'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '1'
+
+    - name: 🔑 Scan the repository for secrets (CIS 4.9)
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        scanners: 'secret'
+        format: 'table'
+        exit-code: '1'
+
     - name: 🔧 Install yq for YAML parsing
       run: |
-        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.54.1/yq_linux_amd64
         sudo chmod +x /usr/local/bin/yq
 
     - name: 📊 Generate Grafana dashboards
@@ -235,8 +262,42 @@ jobs:
         
     - name: 🐳 Build Docker images
       run: |
-        docker compose build --no-cache
-        
+        docker compose build --no-cache --pull
+
+    - name: 🛡️ Scan image for vulnerabilities
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      with:
+        image-ref: observability-test-app:1.0.0
+        format: 'table'
+        severity: 'CRITICAL,HIGH'
+        ignore-unfixed: true
+        exit-code: '1'
+
+    - name: 👤 Verify image runs as non-root and code is read-only
+      run: |
+        docker run --rm observability-test-app:1.0.0 id | grep -q "uid=1888(observabilityuser)"
+        echo "✅ Container runs as non-root user"
+
+        # The app user must not own or modify its code and dependencies, even on a writable filesystem
+        docker run --rm --entrypoint sh observability-test-app:1.0.0 -c '
+          fail=0
+          for p in /observability /observability/.venv /observability/main.py /observability/api; do
+            if [ -w "$p" ]; then echo "writable: $p"; fail=1; fi
+          done
+          if chmod u+w /observability/main.py 2>/dev/null; then echo "chmod u+w main.py succeeded"; fail=1; fi
+          exit $fail'
+        echo "✅ Application files are read-only for the app user"
+
+    - name: 🚫 Verify no setuid or setgid files (CIS 4.7)
+      run: |
+        found=$(docker run --rm --user root --entrypoint sh observability-test-app:1.0.0 -c 'find / -xdev -perm /6000 -type f 2>/dev/null; true')
+        if [ -n "$found" ]; then
+          echo "setuid/setgid files found:"
+          echo "$found"
+          exit 1
+        fi
+        echo "✅ No setuid or setgid files"
+
     - name: 🚀 Start observability stack
       run: |
         docker compose up -d

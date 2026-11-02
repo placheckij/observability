@@ -77,6 +77,8 @@ Use this option to test the complete observability solution with the included de
     •	Alertmanager webhook/SMTP configs in `observability-solution/alertmanager.yml` ([docs](https://prometheus.io/docs/alerting/latest/configuration/))
 
 4.	Run `docker compose up -d --build`
+    
+    All ports are published on loopback only (`127.0.0.1`). If port 3001 is taken on your machine, run `APP_PORT=3011 docker compose up -d --build`.
 5.	Access the services:
 
     •	**Demo App**: http://localhost:3001/health
@@ -111,48 +113,48 @@ Use this option to integrate the monitoring stack into your existing application
       # Your existing services here...
       
       prometheus:
-        image: prom/prometheus:latest
+        image: prom/prometheus:v3.15.1
         volumes:
           - ./observability-solution/prometheus.yml:/etc/prometheus/prometheus.yml:ro
           - ./observability-solution/rules:/etc/prometheus/rules:ro
         command:
           - "--config.file=/etc/prometheus/prometheus.yml"
         ports:
-          - "9090:9090"
+          - "127.0.0.1:9090:9090"
         networks:
           - monitoring
 
       blackbox:
-        image: prom/blackbox-exporter:latest
+        image: prom/blackbox-exporter:v0.29.1
         volumes:
           - ./observability-solution/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
         command:
           - "--config.file=/etc/blackbox_exporter/config.yml"
         ports:
-          - "9115:9115"
+          - "127.0.0.1:9115:9115"
         networks:
           - monitoring
 
       alertmanager:
-        image: prom/alertmanager:latest
+        image: prom/alertmanager:v0.34.2
         volumes:
           - ./observability-solution/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
         command:
           - "--config.file=/etc/alertmanager/alertmanager.yml"
         ports:
-          - "9093:9093"
+          - "127.0.0.1:9093:9093"
         networks:
           - monitoring
 
       grafana:
-        image: grafana/grafana-oss:latest
+        image: grafana/grafana-oss:13.0.2
         environment:
           - GF_SECURITY_ADMIN_PASSWORD=your_secure_password
         volumes:
           - grafana-data:/var/lib/grafana
           - ./observability-solution/grafana/provisioning:/etc/grafana/provisioning:ro
         ports:
-          - "9001:3000"
+          - "127.0.0.1:9001:3000"
         networks:
           - monitoring
 
