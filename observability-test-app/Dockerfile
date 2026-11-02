@@ -65,7 +65,10 @@ COPY --chown=observabilityuser:observabilitygroup ./pyproject.toml ./
 # writable, and a writable directory lets entries be renamed or replaced. Everything under
 # /observability is root-owned and reachable by the app user only through the read-only group.
 USER root
-RUN chown -R root:observabilitygroup /observability && \
+# Precompile the app code too: the runtime filesystem is read-only, so Python could never cache it.
+# SOURCE_DATE_EPOCH makes the .pyc files hash-based (reproducible); the chown/chmod below then lock them.
+RUN SOURCE_DATE_EPOCH=0 python -m compileall -q /observability/api /observability/core /observability/main.py /observability/utils.py && \
+    chown -R root:observabilitygroup /observability && \
     chmod -R g-w,o-rwx /observability && \
     chmod -R 550 /observability/api /observability/core && \
     chmod 440 /observability/main.py /observability/utils.py /observability/pyproject.toml

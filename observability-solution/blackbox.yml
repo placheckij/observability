@@ -5,7 +5,7 @@ modules:
     http:
       valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
       method: GET
-      no_follow_redirects: false
+      follow_redirects: true
       fail_if_ssl: false
       fail_if_not_ssl: false
       valid_status_codes: [200]  # empty means 2xx-3xx accepted; set e.g. [200] to require 200
