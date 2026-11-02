@@ -68,8 +68,9 @@ jobs:
 
     - name: 🔧 Install yq for YAML parsing
       run: |
-        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.54.1/yq_linux_amd64
-        sudo chmod +x /usr/local/bin/yq
+        wget -qO /tmp/yq https://github.com/mikefarah/yq/releases/download/v4.54.1/yq_linux_amd64
+        echo "8e34fc298390875de416e6a4afcb8cabeceb25d9aa8506c1a2f9353cf702ea5f  /tmp/yq" | sha256sum -c -
+        sudo install -m 0755 /tmp/yq /usr/local/bin/yq
 
     - name: 📊 Generate Grafana dashboards
       run: |
