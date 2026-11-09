@@ -16,7 +16,7 @@ pydantic-settings = "^2.16.0"
 uvicorn = "^0.54.0"
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.17.3"
+ruff = "^0.17.4"
 isort = "^9.0.2"
 
 [build-system]
