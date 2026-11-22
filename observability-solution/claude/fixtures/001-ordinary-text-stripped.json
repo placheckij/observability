@@ -1,0 +1,95 @@
+{
+  "description": "Ordinary prompt, response and tool content is stripped; the events and their metadata are stored",
+  "otlp": {
+    "resourceLogs": [
+      {
+        "resource": {
+          "attributes": [
+            { "key": "service.name", "value": { "stringValue": "claude-code" } },
+            { "key": "service.version", "value": { "stringValue": "fixture" } }
+          ]
+        },
+        "scopeLogs": [
+          {
+            "scope": { "name": "com.anthropic.claude_code.events" },
+            "logRecords": [
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "claude_code.user_prompt" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "user_prompt" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "prompt.id", "value": { "stringValue": "${RUN_ID}-prompt" } },
+                  { "key": "event.sequence", "value": { "intValue": "0" } },
+                  { "key": "prompt_length", "value": { "stringValue": "52" } },
+                  { "key": "prompt", "value": { "stringValue": "fixture-prompt-${RUN_ID} please tidy the README" } },
+                  { "key": "prompt_text", "value": { "stringValue": "fixture-prompt-text-${RUN_ID} please tidy the README" } }
+                ]
+              },
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "claude_code.assistant_response" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "assistant_response" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "prompt.id", "value": { "stringValue": "${RUN_ID}-prompt" } },
+                  { "key": "event.sequence", "value": { "intValue": "1" } },
+                  { "key": "response_length", "value": { "stringValue": "48" } },
+                  { "key": "response", "value": { "stringValue": "fixture-response-${RUN_ID} I tidied the README" } }
+                ]
+              },
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "claude_code.tool_decision" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "tool_decision" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "prompt.id", "value": { "stringValue": "${RUN_ID}-prompt" } },
+                  { "key": "event.sequence", "value": { "intValue": "2" } },
+                  { "key": "tool_name", "value": { "stringValue": "Bash" } },
+                  { "key": "decision", "value": { "stringValue": "accept" } },
+                  { "key": "tool_parameters", "value": { "stringValue": "{\"bash_command\":\"cat fixture-decision-${RUN_ID}.md\"}" } }
+                ]
+              },
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "claude_code.tool_result" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "tool_result" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "prompt.id", "value": { "stringValue": "${RUN_ID}-prompt" } },
+                  { "key": "event.sequence", "value": { "intValue": "3" } },
+                  { "key": "tool_name", "value": { "stringValue": "Bash" } },
+                  { "key": "success", "value": { "stringValue": "false" } },
+                  { "key": "duration_ms", "value": { "stringValue": "12" } },
+                  { "key": "tool_parameters", "value": { "stringValue": "{\"bash_command\":\"cat fixture-params-${RUN_ID}.md\"}" } },
+                  { "key": "tool_input", "value": { "stringValue": "fixture-input-${RUN_ID}.md" } },
+                  { "key": "error", "value": { "stringValue": "fixture-error-${RUN_ID} no such file" } },
+                  { "key": "new_context", "value": { "stringValue": "fixture-output-${RUN_ID} file contents" } }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "events": 4,
+    "metadata": {
+      "prompt_length": "52",
+      "response_length": "48",
+      "tool_name": "Bash"
+    },
+    "absent": [
+      "fixture-prompt-${RUN_ID}",
+      "fixture-prompt-text-${RUN_ID}",
+      "fixture-response-${RUN_ID}",
+      "fixture-decision-${RUN_ID}",
+      "fixture-params-${RUN_ID}",
+      "fixture-input-${RUN_ID}",
+      "fixture-error-${RUN_ID}",
+      "fixture-output-${RUN_ID}"
+    ]
+  }
+}

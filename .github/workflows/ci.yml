@@ -507,3 +507,72 @@ jobs:
       if: always()
       run: |
         docker compose down -v
+
+  # The opt-in Claude Code overlay (compose.claude.yml): Collector strips content, Loki stores events
+  claude-overlay:
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_FILE: docker-compose.yml:compose.claude.yml
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      with:
+        python-version: '3.14'
+
+    - name: 🚀 Start stack with the Claude overlay
+      run: |
+        docker compose up -d --build
+
+    - name: ⏳ Wait for Loki and Grafana
+      run: |
+        timeout 120 bash -c 'until curl -sf http://localhost:3100/ready; do sleep 2; done'
+        echo "✅ Loki is ready"
+        timeout 120 bash -c 'until curl -sf http://localhost:9001/api/health; do sleep 2; done'
+        echo "✅ Grafana is healthy"
+
+    - name: 🔒 Verify every published port binds to 127.0.0.1
+      run: |
+        docker compose ps --format json | jq -s '[.[].Publishers[]? | select(.PublishedPort > 0)]' > /tmp/ports.json
+        jq -r '.[] | "\(.URL):\(.PublishedPort)"' /tmp/ports.json
+        for port in 3100 4317 4318; do
+          jq -e --argjson p "$port" 'any(.[]; .PublishedPort == $p)' /tmp/ports.json > /dev/null || { echo "ERROR: port $port not published"; exit 1; }
+        done
+        if jq -e 'any(.[]; .URL != "127.0.0.1")' /tmp/ports.json > /dev/null; then
+          echo "ERROR: a port is published beyond loopback"
+          exit 1
+        fi
+        echo "✅ All published ports bind to 127.0.0.1"
+
+    - name: 🧪 Send fixtures and check what Loki stored
+      run: |
+        python3 scripts/claude/run-fixtures.py
+
+    - name: 🗓️ Verify Loki keeps data for 90 days
+      run: |
+        curl -sf http://localhost:3100/config > /tmp/loki-config.yaml
+        grep -qE '^[[:space:]]+retention_enabled: true$' /tmp/loki-config.yaml || { echo "ERROR: retention disabled"; exit 1; }
+        grep -qE '^[[:space:]]+retention_period: 90d$' /tmp/loki-config.yaml || { echo "ERROR: retention is not 90d"; exit 1; }
+        echo "✅ Loki retention is 90 days"
+
+    - name: 📈 Verify Grafana has both data sources
+      run: |
+        curl -sf -u admin:changeme http://localhost:9001/api/datasources/uid/loki/health | jq -e '.status == "OK"'
+        echo "✅ Grafana reaches Loki"
+        curl -sf -u admin:changeme http://localhost:9001/api/datasources/name/Prometheus | jq -e '.type == "prometheus"'
+        curl -sf -u admin:changeme http://localhost:9001/api/dashboards/uid/app_health_monitoring | jq -e '.dashboard.title == "Application Health Monitoring"'
+        echo "✅ Prometheus data source and dashboard are still provisioned"
+
+    - name: 📜 Show service logs on failure
+      if: failure()
+      run: |
+        docker compose logs otel-collector loki grafana
+        docker compose ps
+
+    - name: 🧹 Cleanup
+      if: always()
+      run: |
+        docker compose down -v

@@ -13,6 +13,7 @@ A production-ready observability stack using Prometheus, Grafana, Blackbox Expor
   - [Option 1: Test Run with Demo Application](#option-1-test-run-with-demo-application)
   - [Option 2: Use Observability Solution in Your Own Project](#option-2-use-observability-solution-in-your-own-project)
 - [Testing the Alert System](#testing-the-alert-system)
+- [Claude Code Telemetry (opt-in)](#claude-code-telemetry-opt-in)
 - [Remarks](#remarks)
 - [Support & Contact](#support--contact)
 - [License](#license)
@@ -25,9 +26,17 @@ observability/
 │   └── workflows/
 │       └── build-and-test.yml      # CI/CD pipeline
 ├── docker-compose.yml              # Orchestrates all services
+├── compose.claude.yml              # Opt-in overlay: Claude Code telemetry (Collector + Loki)
 ├── scripts/
-│   └── generate-dashboard.sh       # Auto-generates Grafana dashboards
+│   ├── generate-dashboard.sh       # Auto-generates Grafana dashboards
+│   └── claude/
+│       └── run-fixtures.py         # Sends OTLP fixtures, checks what Loki stored
 ├── observability-solution/         # Monitoring & observability configs
+│   ├── claude/                     # Claude Code overlay configs
+│   │   ├── otel-collector.yml      # Receives events, deletes content
+│   │   ├── loki.yml                # Event storage, 90-day retention
+│   │   ├── grafana/                # Loki data source
+│   │   └── fixtures/               # OTLP fixture events with expected results
 │   ├── prometheus.yml              # Prometheus configuration
 │   ├── alertmanager.yml            # Alertmanager configuration
 │   ├── blackbox.yml                # Blackbox Exporter configuration
@@ -286,6 +295,53 @@ Edit `observability-solution/alertmanager.yml` to configure your notification ch
 - Custom webhooks
 
 See the [Alertmanager documentation](https://prometheus.io/docs/alerting/latest/configuration/) for all options.
+
+## Claude Code Telemetry (opt-in)
+
+An overlay, `compose.claude.yml`, adds an OpenTelemetry Collector and Loki so the stack also records what Claude Code does on this machine. The Collector deletes all content before export, so Loki stores event metadata only.
+
+### Turn it on
+
+1.	In `.env`, set `COMPOSE_FILE=docker-compose.yml:compose.claude.yml` (see `.env.example`), then run `docker compose up -d --build`. Without it, the stack is unchanged.
+
+    New ports, loopback only: `4317` (OTLP gRPC), `4318` (OTLP HTTP), `3100` (Loki).
+
+2.	Point Claude Code at the Collector. Add this to your user settings, `~/.claude/settings.json`:
+    ```json
+    {
+      "env": {
+        "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+        "OTEL_LOGS_EXPORTER": "otlp",
+        "OTEL_METRICS_EXPORTER": "none",
+        "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318",
+        "OTEL_LOG_USER_PROMPTS": "1",
+        "OTEL_LOG_ASSISTANT_RESPONSES": "1",
+        "OTEL_LOG_TOOL_DETAILS": "1"
+      }
+    }
+    ```
+    Or export the same variables in your shell before starting `claude`. Claude Code ignores telemetry export variables in a project's `.claude/settings.json` and `.claude/settings.local.json`, so the repo can't turn this on for you. The three `OTEL_LOG_*` flags send content to the local Collector only; it deletes that content before storage. They are there for the content scanner planned in later issues.
+
+3.	Start a new Claude Code session, then open Grafana → Explore → **Loki** and run `{service_name="claude-code"}`. Events appear within a few seconds.
+
+### What is stored
+
+Kept for 90 days in the `loki-data` volume:
+
+- Every Claude Code event (`user_prompt`, `assistant_response`, `api_request`, `tool_decision`, `tool_result`, hooks, MCP connections and others) with its metadata: event name, session and prompt IDs, sequence, timestamps, model, tokens, cost, durations, tool names, decisions, and prompt and response lengths.
+- Identity as Claude Code reports it: `user.email`, account and organization IDs, and OS and terminal details.
+
+Deleted in the Collector before export:
+
+- Prompt and response text (`prompt`, `prompt_text`, `response`).
+- Tool parameters, Bash commands, tool input and output (`tool_parameters`, `tool_input`, `new_context`), and tool and MCP error text.
+- Raw API request and response bodies and the system prompt (those events are dropped entirely), classifier and refusal categories, and managed settings contents.
+- Any event body other than the event name.
+
+### Test it
+
+With the overlay running, `python3 scripts/claude/run-fixtures.py` sends each fixture in `observability-solution/claude/fixtures/` to the Collector. It checks that the events and their metadata reach Loki and that none of their content text does. CI runs the same check.
 
 ## Remarks
 1.	Optionally add a small Python probe for complex JSON checks and expose /metrics for Prometheus.

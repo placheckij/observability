@@ -1,0 +1,79 @@
+# Opt-in overlay: Claude Code telemetry (OpenTelemetry Collector + Loki).
+# Turn it on with COMPOSE_FILE=docker-compose.yml:compose.claude.yml (see .env.example).
+
+services:
+  # Receives Claude Code OTLP events and deletes content before export
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.165.0@sha256:e40d61f10c9a617cca1ffd1be4d7e2b3a4b0f0001798ff07e58cabe82e618cea
+    command:
+      - "--config=/etc/otelcol-contrib/config.yaml"
+    volumes:
+      - ./observability-solution/claude/otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      - loki
+    restart: on-failure:5
+    ports:
+      - "127.0.0.1:4317:4317" # OTLP gRPC
+      - "127.0.0.1:4318:4318" # OTLP HTTP
+    read_only: true
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+          pids: 100
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - monitoring
+
+  # Stores the stripped events; retention 90 days (loki.yml)
+  loki:
+    image: grafana/loki:3.7.10@sha256:b43c257ccfc925d4a50b8717cac61a3b51df8c48d01847936057e5c4075a24a7
+    command:
+      - "-config.file=/etc/loki/config.yaml"
+    volumes:
+      - ./observability-solution/claude/loki.yml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    restart: on-failure:5
+    ports:
+      - "127.0.0.1:3100:3100"
+    read_only: true
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+          pids: 200
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - monitoring
+
+  # A file can't be mounted inside the base read-only provisioning mount, so Grafana reads a
+  # second provisioning tree: the base dashboards and data sources plus Loki.
+  # A data source file added to the base stack must be listed here too.
+  grafana:
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning-claude
+    volumes:
+      - ./observability-solution/grafana/provisioning/dashboards:/etc/grafana/provisioning-claude/dashboards:ro
+      - ./observability-solution/grafana/provisioning/datasources/prometheus-data-source.yml:/etc/grafana/provisioning-claude/datasources/prometheus-data-source.yml:ro
+      - ./observability-solution/claude/grafana/loki-data-source.yml:/etc/grafana/provisioning-claude/datasources/loki-data-source.yml:ro
+
+volumes:
+  loki-data:
