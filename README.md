@@ -306,6 +306,8 @@ An overlay, `compose.claude.yml`, adds an OpenTelemetry Collector and Loki so th
 
     New ports, loopback only: `4317` (OTLP gRPC), `4318` (OTLP HTTP), `3100` (Loki).
 
+    With the overlay on, Grafana keeps its state in its own `grafana-claude-data` volume, so changes made in the Grafana UI in one mode don't appear in the other. Provisioned dashboards appear in both.
+
 2.	Point Claude Code at the Collector. Add this to your user settings, `~/.claude/settings.json`:
     ```json
     {

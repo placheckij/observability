@@ -67,13 +67,17 @@ services:
   # A file can't be mounted inside the base read-only provisioning mount, so Grafana reads a
   # second provisioning tree: the base dashboards and data sources plus Loki.
   # A data source file added to the base stack must be listed here too.
+  # Its own data volume keeps the Loki data source out of the base stack's grafana-data, so
+  # turning the overlay off leaves Grafana as it was.
   grafana:
     environment:
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning-claude
     volumes:
+      - grafana-claude-data:/var/lib/grafana
       - ./observability-solution/grafana/provisioning/dashboards:/etc/grafana/provisioning-claude/dashboards:ro
       - ./observability-solution/grafana/provisioning/datasources/prometheus-data-source.yml:/etc/grafana/provisioning-claude/datasources/prometheus-data-source.yml:ro
       - ./observability-solution/claude/grafana/loki-data-source.yml:/etc/grafana/provisioning-claude/datasources/loki-data-source.yml:ro
 
 volumes:
   loki-data:
+  grafana-claude-data:
