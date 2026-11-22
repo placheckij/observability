@@ -302,7 +302,7 @@ An overlay, `compose.claude.yml`, adds an OpenTelemetry Collector and Loki so th
 
 ### Turn it on
 
-1.	In `.env`, set `COMPOSE_FILE=docker-compose.yml:compose.claude.yml` (see `.env.example`), then run `docker compose up -d --build`. Without it, the stack is unchanged.
+1.	In `.env`, set `COMPOSE_FILE=docker-compose.yml:compose.claude.yml` (see `.env.example`), then run `docker compose up -d --build`. Without it, the stack is unchanged (to turn it off later, see [Turn it off](#turn-it-off)).
 
     New ports, loopback only: `4317` (OTLP gRPC), `4318` (OTLP HTTP), `3100` (Loki).
 
@@ -326,6 +326,10 @@ An overlay, `compose.claude.yml`, adds an OpenTelemetry Collector and Loki so th
     Or export the same variables in your shell before starting `claude`. Claude Code ignores telemetry export variables in a project's `.claude/settings.json` and `.claude/settings.local.json`, so the repo can't turn this on for you. The three `OTEL_LOG_*` flags send content to the local Collector only; it deletes that content before storage. They are there for the content scanner planned in later issues.
 
 3.	Start a new Claude Code session, then open Grafana → Explore → **Loki** and run `{service_name="claude-code"}`. Events appear within a few seconds.
+
+### Turn it off
+
+With `COMPOSE_FILE` still set, run `docker compose down --remove-orphans` (add `-v` to also delete the stored events and the overlay's Grafana state). Then remove the `COMPOSE_FILE` line from `.env` and remove the `env` entries above from your Claude Code settings. If you only remove the line, the Collector and Loki keep running as orphan containers, and a later `docker compose down -v` leaves the `loki-data` and `grafana-claude-data` volumes behind.
 
 ### What is stored
 
