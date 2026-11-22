@@ -76,10 +76,22 @@
   },
   "expect": {
     "events": 4,
+    "lines": [
+      "claude_code.user_prompt",
+      "claude_code.assistant_response",
+      "claude_code.tool_decision",
+      "claude_code.tool_result"
+    ],
     "metadata": {
+      "event_name": "tool_result",
+      "prompt_id": "${RUN_ID}-prompt",
+      "event_sequence": "3",
       "prompt_length": "52",
       "response_length": "48",
-      "tool_name": "Bash"
+      "tool_name": "Bash",
+      "decision": "accept",
+      "success": "false",
+      "duration_ms": "12"
     },
     "absent": [
       "fixture-prompt-${RUN_ID}",

@@ -4,7 +4,8 @@
 Each fixture is a JSON file with:
   otlp    - an OTLP/JSON logs payload; "${RUN_ID}" and "${TIME_UNIX_NANO}" are filled in per run
   expect  - events:   number of events stored for this run's session.id
-            metadata: attributes every stored event set must carry (proves metadata is kept)
+            lines:    the stored log lines (event bodies) for this session, in any order
+            metadata: key/value pairs that at least one stored event carries (proves metadata is kept)
             absent:   strings that must not appear anywhere in Loki (proves content is stripped)
 
 Standard library only. Exit code 0 when every fixture passes.
@@ -79,6 +80,11 @@ def run_fixture(path, otlp, loki, timeout):
     failures = []
     if entries != expect["events"]:
         failures.append(f"stored {entries} events for session {run_id}, expected {expect['events']}")
+
+    if "lines" in expect:
+        stored = sorted(line for s in streams for _, line in s["values"])
+        if stored != sorted(expect["lines"]):
+            failures.append(f"stored log lines {stored}, expected {sorted(expect['lines'])}")
 
     # Loki returns structured metadata merged into each stream's labels.
     labels = [s["stream"] for s in streams]
