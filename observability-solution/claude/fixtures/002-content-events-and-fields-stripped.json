@@ -5,7 +5,7 @@
       {
         "resource": {
           "attributes": [
-            { "key": "service.name", "value": { "stringValue": "claude-code" } },
+            { "key": "service.name", "value": { "stringValue": "claude-code-fixture" } },
             { "key": "service.version", "value": { "stringValue": "fixture" } }
           ]
         },
@@ -85,6 +85,16 @@
               },
               {
                 "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "claude_code.hook_execution_start" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "hook_execution_start" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "hook_event", "value": { "stringValue": "PreToolUse" } },
+                  { "key": "hook_definitions", "value": { "stringValue": "[{\"command\":\"fixture-hook-command-${RUN_ID}\"}]" } }
+                ]
+              },
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
                 "body": { "stringValue": "fixture-record-body-${RUN_ID} free text in the body" },
                 "attributes": [
                   { "key": "event.name", "value": { "stringValue": "user_prompt" } },
@@ -99,15 +109,17 @@
     ]
   },
   "expect": {
-    "events": 5,
+    "events": 6,
     "lines": [
       "claude_code.mcp_server_connection",
       "claude_code.api_refusal",
       "claude_code.tool_decision",
       "claude_code.managed_settings_resolved",
+      "claude_code.hook_execution_start",
       "[stripped]"
     ],
     "metadata": {
+      "hook_event": "PreToolUse",
       "status": "failed",
       "has_category": "true",
       "classifier_verdict": "block",
@@ -124,6 +136,7 @@
       "fixture-managed-settings-${RUN_ID}",
       "fixture-body-attribute-${RUN_ID}",
       "fixture-body-ref-${RUN_ID}",
+      "fixture-hook-command-${RUN_ID}",
       "fixture-record-body-${RUN_ID}"
     ]
   }

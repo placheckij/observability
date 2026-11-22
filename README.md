@@ -338,12 +338,12 @@ Deleted in the Collector before export:
 
 - Prompt and response text (`prompt`, `prompt_text`, `response`).
 - Tool parameters, Bash commands, tool input and output (`tool_parameters`, `tool_input`, `new_context`), and tool and MCP error text.
-- Raw API request and response bodies and the system prompt (those events are dropped entirely), classifier and refusal categories, and managed settings contents.
+- Raw API request and response bodies and the system prompt (those events are dropped entirely), classifier and refusal categories, managed settings contents, and hook definitions (hook command strings).
 - Any event body other than the event name.
 
 ### Test it
 
-With the overlay running, `python3 scripts/claude/run-fixtures.py` sends each fixture in `observability-solution/claude/fixtures/` to the Collector. It checks that the events and their metadata reach Loki and that none of their content text does. CI runs the same check.
+With the overlay running, `python3 scripts/claude/run-fixtures.py` sends each fixture in `observability-solution/claude/fixtures/` to the Collector. It checks that the events and their metadata reach Loki and that none of their content text does. CI runs the same check. Fixture events are stored under `service_name="claude-code-fixture"`, apart from real Claude Code events.
 
 ## Remarks
 1.	Optionally add a small Python probe for complex JSON checks and expose /metrics for Prometheus.

@@ -5,7 +5,7 @@
       {
         "resource": {
           "attributes": [
-            { "key": "service.name", "value": { "stringValue": "claude-code" } },
+            { "key": "service.name", "value": { "stringValue": "claude-code-fixture" } },
             { "key": "service.version", "value": { "stringValue": "fixture" } }
           ]
         },

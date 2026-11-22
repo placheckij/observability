@@ -23,13 +23,14 @@ processors:
         - 'IsMatch(log.attributes["event.name"], "^(claude_code\\.)?(api_request_body|api_response_body|system_prompt)$")'
 
   # Content attributes: prompt and response text, tool parameters, tool input and output,
-  # tool and MCP error text, gated classifier and refusal categories, managed settings contents.
+  # tool and MCP error text, gated classifier and refusal categories, managed settings contents,
+  # hook definitions (hook command strings).
   transform/strip-content:
     error_mode: ignore
     log_statements:
       - context: log
         statements:
-          - delete_matching_keys(log.attributes, "^(prompt|prompt_text|response|tool_parameters|tool_input|new_context|body|body_ref|classifier_category|managed_settings\\.settings)$")
+          - delete_matching_keys(log.attributes, "^(prompt|prompt_text|response|tool_parameters|tool_input|new_context|body|body_ref|classifier_category|managed_settings\\.settings|hook_definitions)$")
           - delete_key(log.attributes, "error") where IsMatch(log.attributes["event.name"], "^(claude_code\\.)?(tool_result|mcp_server_connection)$")
           - delete_key(log.attributes, "category") where IsMatch(log.attributes["event.name"], "^(claude_code\\.)?api_refusal$")
           # Keep the body only when it is the event name; anything else could be content.
