@@ -1,0 +1,123 @@
+{
+  "description": "Raw body and system prompt events are dropped; gated fields and non-event-name bodies are stripped",
+  "otlp": {
+    "resourceLogs": [
+      {
+        "resource": {
+          "attributes": [
+            { "key": "service.name", "value": { "stringValue": "claude-code" } },
+            { "key": "service.version", "value": { "stringValue": "fixture" } }
+          ]
+        },
+        "scopeLogs": [
+          {
+            "scope": { "name": "com.anthropic.claude_code.events" },
+            "logRecords": [
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "claude_code.api_request_body" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "api_request_body" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "fixture.marker", "value": { "stringValue": "fixture-request-event-${RUN_ID}" } },
+                  { "key": "body_length", "value": { "stringValue": "30" } }
+                ]
+              },
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "claude_code.api_response_body" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "claude_code.api_response_body" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "fixture.marker", "value": { "stringValue": "fixture-response-event-${RUN_ID}" } }
+                ]
+              },
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "claude_code.system_prompt" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "system_prompt" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "fixture.marker", "value": { "stringValue": "fixture-system-prompt-event-${RUN_ID}" } }
+                ]
+              },
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "claude_code.mcp_server_connection" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "mcp_server_connection" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "status", "value": { "stringValue": "failed" } },
+                  { "key": "error", "value": { "stringValue": "fixture-mcp-error-${RUN_ID}" } }
+                ]
+              },
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "claude_code.api_refusal" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "api_refusal" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "has_category", "value": { "stringValue": "true" } },
+                  { "key": "category", "value": { "stringValue": "fixture-refusal-category-${RUN_ID}" } }
+                ]
+              },
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "claude_code.tool_decision" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "tool_decision" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "classifier_verdict", "value": { "stringValue": "block" } },
+                  { "key": "classifier_category", "value": { "stringValue": "fixture-classifier-${RUN_ID}" } }
+                ]
+              },
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "claude_code.managed_settings_resolved" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "managed_settings_resolved" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "managed_settings.trigger", "value": { "stringValue": "startup" } },
+                  { "key": "managed_settings.settings", "value": { "stringValue": "fixture-managed-settings-${RUN_ID}" } },
+                  { "key": "body", "value": { "stringValue": "fixture-body-attribute-${RUN_ID}" } },
+                  { "key": "body_ref", "value": { "stringValue": "/tmp/fixture-body-ref-${RUN_ID}.json" } }
+                ]
+              },
+              {
+                "timeUnixNano": "${TIME_UNIX_NANO}",
+                "body": { "stringValue": "fixture-record-body-${RUN_ID} free text in the body" },
+                "attributes": [
+                  { "key": "event.name", "value": { "stringValue": "user_prompt" } },
+                  { "key": "session.id", "value": { "stringValue": "${RUN_ID}" } },
+                  { "key": "prompt_length", "value": { "stringValue": "33" } }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "events": 5,
+    "metadata": {
+      "status": "failed",
+      "has_category": "true",
+      "classifier_verdict": "block",
+      "managed_settings_trigger": "startup",
+      "prompt_length": "33"
+    },
+    "absent": [
+      "fixture-request-event-${RUN_ID}",
+      "fixture-response-event-${RUN_ID}",
+      "fixture-system-prompt-event-${RUN_ID}",
+      "fixture-mcp-error-${RUN_ID}",
+      "fixture-refusal-category-${RUN_ID}",
+      "fixture-classifier-${RUN_ID}",
+      "fixture-managed-settings-${RUN_ID}",
+      "fixture-body-attribute-${RUN_ID}",
+      "fixture-body-ref-${RUN_ID}",
+      "fixture-record-body-${RUN_ID}"
+    ]
+  }
+}
