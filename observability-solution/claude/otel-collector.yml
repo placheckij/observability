@@ -1,0 +1,50 @@
+# OpenTelemetry Collector for Claude Code events.
+# Content is deleted here, before export, so nothing downstream ever stores it.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+  # Events that are nothing but content: raw API bodies and the system prompt.
+  filter/content-events:
+    error_mode: ignore
+    logs:
+      log_record:
+        - 'IsMatch(log.attributes["event.name"], "^(claude_code\\.)?(api_request_body|api_response_body|system_prompt)$")'
+
+  # Content attributes: prompt and response text, tool parameters, tool input and output,
+  # tool and MCP error text, gated classifier and refusal categories, managed settings contents,
+  # hook definitions (hook command strings).
+  transform/strip-content:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - delete_matching_keys(log.attributes, "^(prompt|prompt_text|response|tool_parameters|tool_input|new_context|body|body_ref|classifier_category|managed_settings\\.settings|hook_definitions)$")
+          - delete_key(log.attributes, "error") where IsMatch(log.attributes["event.name"], "^(claude_code\\.)?(tool_result|mcp_server_connection)$")
+          - delete_key(log.attributes, "category") where IsMatch(log.attributes["event.name"], "^(claude_code\\.)?api_refusal$")
+          # Keep the body only when it is the event name; anything else could be content.
+          - set(log.body, "[stripped]") where not (IsString(log.body) and IsMatch(log.body, "^claude_code\\.[a-z_]+$"))
+
+  batch: {}
+
+exporters:
+  otlp_http/loki:
+    endpoint: http://loki:3100/otlp
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/content-events, transform/strip-content, batch]
+      exporters: [otlp_http/loki]
